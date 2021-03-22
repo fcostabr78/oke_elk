@@ -1,0 +1,8 @@
+esJavaOpts: "-Xmn128m -Xmn128m"
+resources: {}
+volumeClaimTemplate:
+  accessModes: [ "ReadWriteOnce" ]
+  storageClassName: "oci-bv"
+  resources:
+    requests:
+      storage: 500Gi
