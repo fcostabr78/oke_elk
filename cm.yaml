@@ -1,0 +1,108 @@
+apiVersion: v1
+data:
+  fluentd.conf: |2
+
+    # Ignore fluentd own events
+    <match fluent.**>
+      @type null
+    </match>
+
+    # HTTP input for the liveness and readiness probes
+    <source>
+      @type http
+      port 9880
+    </source>
+
+    # Throw the healthcheck to the standard output instead of forwarding it
+    <match fluentd.healthcheck>
+      @type null
+    </match>
+
+    # Get the logs from the containers running in the node
+    <source>
+      @type tail
+      path /var/log/containers/*.log
+      # exclude Fluentd logs
+      exclude_path /var/log/containers/*fluentd*.log
+      pos_file /opt/bitnami/fluentd/logs/buffers/fluentd-docker.pos
+      tag kubernetes.*
+      read_from_head true
+      format json
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+          time_key time
+          time_format %Y-%m-%dT%H:%M:%S.%NZ
+        </pattern>
+        <pattern>
+          format /^(?<time>.+) (?<stream>stdout|stderr) [^ ]* (?<log>.*)$/
+          time_format %Y-%m-%dT%H:%M:%S.%N%:z
+        </pattern>
+      </parse>
+    </source>
+
+    # enrich with kubernetes metadata
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+    </filter>
+
+    # Concatenate multi-line logs
+    <filter **>
+      @id filter_concat
+      @type concat
+      key message
+      multiline_end_regexp /\n$/
+      separator ""
+    </filter>
+
+    # Fixes json fields for Elasticsearch
+    <filter kubernetes.**>
+      @id filter_parser
+      @type parser
+      key_name log
+      reserve_data true
+      remove_key_name_field true
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+        </pattern>
+        <pattern>
+          format none
+        </pattern>
+      </parse>
+    </filter>
+    # Forward all logs to the aggregators
+    <match **>
+      @id elasticsearch
+      @type elasticsearch_dynamic
+      host elasticsearch-master
+      port 9200
+      include_tag_key true
+      logstash_prefix ${record['kubernetes']['namespace_name']}-${record['kubernetes']['pod_name']}
+      logstash_format true
+      <buffer>
+        @type file
+        path /opt/bitnami/fluentd/logs/buffers/logs.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 5s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size 2M
+        queue_limit_length 8
+        overflow_action block
+      </buffer>
+    </match>
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: forwarder
+    app.kubernetes.io/instance: fluentd
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/name: fluentd
+    helm.sh/chart: fluentd-2.0.1
+  name: fluentd-forwarder-cm
+  namespace: default
