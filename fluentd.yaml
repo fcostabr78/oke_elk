@@ -5,3 +5,11 @@ spec:
       - env:
         - name: FLUENT_UID
           value: "0"
+        volumeMounts:
+        - mountPath: /u01
+          name: u01
+      volumes:
+      - hostPath:
+          path: /u01
+          type: ""
+        name: u01
