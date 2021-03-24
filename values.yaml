@@ -1,4 +1,5 @@
-esJavaOpts: "-Xmn128m -Xmn128m"
+esJavaOpts: "-Xmx1g -Xms1g"
+replicas: 3
 resources: {}
 volumeClaimTemplate:
   accessModes: [ "ReadWriteOnce" ]
