@@ -3,12 +3,15 @@ kind: StatefulSet
 metadata:
   annotations:
     esMajorVersion: "7"
-  creationTimestamp: "2021-03-10T23:33:47Z"
+    meta.helm.sh/release-name: elasticsearch
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2021-03-31T02:00:16Z"
   generation: 4
   labels:
     app: elasticsearch-master
+    app.kubernetes.io/managed-by: Helm
     chart: elasticsearch
-    heritage: Tiller
+    heritage: Helm
     release: elasticsearch
   managedFields:
   - apiVersion: apps/v1
@@ -18,9 +21,12 @@ metadata:
         f:annotations:
           .: {}
           f:esMajorVersion: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
         f:labels:
           .: {}
           f:app: {}
+          f:app.kubernetes.io/managed-by: {}
           f:chart: {}
           f:heritage: {}
           f:release: {}
@@ -111,9 +117,7 @@ metadata:
                     f:protocol: {}
                 f:readinessProbe:
                   .: {}
-                  f:exec:
-                    .: {}
-                    f:command: {}
+                  f:exec: {}
                   f:failureThreshold: {}
                   f:initialDelaySeconds: {}
                   f:periodSeconds: {}
@@ -124,7 +128,6 @@ metadata:
                   f:limits:
                     .: {}
                     f:cpu: {}
-                    f:memory: {}
                   f:requests:
                     .: {}
                     f:cpu: {}
@@ -173,19 +176,36 @@ metadata:
         f:volumeClaimTemplates: {}
     manager: Go-http-client
     operation: Update
-    time: "2021-03-10T23:33:47Z"
+    time: "2021-03-31T02:00:16Z"
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:template:
+          f:metadata:
+            f:annotations:
+              .: {}
+              f:kubectl.kubernetes.io/restartedAt: {}
+    manager: kubectl-rollout
+    operation: Update
+    time: "2021-03-31T02:13:28Z"
   - apiVersion: apps/v1
     fieldsType: FieldsV1
     fieldsV1:
       f:spec:
         f:template:
           f:spec:
-            f:nodeSelector:
-              .: {}
-              f:pool: {}
+            f:containers:
+              k:{"name":"elasticsearch"}:
+                f:readinessProbe:
+                  f:exec:
+                    f:command: {}
+                f:resources:
+                  f:limits:
+                    f:memory: {}
     manager: kubectl-edit
     operation: Update
-    time: "2021-03-10T23:59:39Z"
+    time: "2021-03-31T02:15:51Z"
   - apiVersion: apps/v1
     fieldsType: FieldsV1
     fieldsV1:
@@ -200,15 +220,15 @@ metadata:
         f:updatedReplicas: {}
     manager: kube-controller-manager
     operation: Update
-    time: "2021-03-11T00:01:47Z"
+    time: "2021-03-31T02:24:06Z"
   name: elasticsearch-master
   namespace: default
-  resourceVersion: "470640"
+  resourceVersion: "9870080"
   selfLink: /apis/apps/v1/namespaces/default/statefulsets/elasticsearch-master
-  uid: 8c624d20-7857-4626-8c2e-bc973b023c71
+  uid: 9b227464-f69a-4de3-b884-558bf4da4a97
 spec:
   podManagementPolicy: Parallel
-  replicas: 1
+  replicas: 3
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -216,11 +236,13 @@ spec:
   serviceName: elasticsearch-master-headless
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2021-03-30T23:13:28-03:00"
       creationTimestamp: null
       labels:
         app: elasticsearch-master
         chart: elasticsearch
-        heritage: Tiller
+        heritage: Helm
         release: elasticsearch
       name: elasticsearch-master
     spec:
@@ -242,7 +264,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.name
         - name: cluster.initial_master_nodes
-          value: elasticsearch-master-0,
+          value: elasticsearch-master-0,elasticsearch-master-1,elasticsearch-master-2,
         - name: discovery.seed_hosts
           value: elasticsearch-master-headless
         - name: cluster.name
@@ -250,7 +272,7 @@ spec:
         - name: network.host
           value: 0.0.0.0
         - name: ES_JAVA_OPTS
-          value: -Xmn128m -Xmn128m
+          value: -Xmx2g -Xms2g
         - name: node.data
           value: "true"
         - name: node.ingest
@@ -274,7 +296,7 @@ spec:
             - -c
             - |
               #!/usr/bin/env bash -e
-              # If the node is starting up wait for the cluster to be ready (request params: "wait_for_status=green&timeout=1s" )
+              # If the node is starting up wait for the cluster to be ready (request params: "wait_for_status=yellow&timeout=1s" )
               # Once it has started only check that the node itself is responding
               START_FILE=/tmp/.es_start_file
 
@@ -313,12 +335,12 @@ spec:
                 fi
 
               else
-                echo 'Waiting for elasticsearch cluster to become ready (request params: "wait_for_status=green&timeout=1s" )'
-                if http "/_cluster/health?wait_for_status=green&timeout=1s" "--fail" ; then
+                echo 'Waiting for elasticsearch cluster to become ready (request params: "wait_for_status=yellow&timeout=1s" )'
+                if http "/_cluster/health?wait_for_status=yellow&timeout=1s" "--fail" ; then
                   touch ${START_FILE}
                   exit 0
                 else
-                  echo 'Cluster is not yet ready (request params: "wait_for_status=green&timeout=1s" )'
+                  echo 'Cluster is not yet ready (request params: "wait_for_status=yellow&timeout=1s" )'
                   exit 1
                 fi
               fi
@@ -330,7 +352,7 @@ spec:
         resources:
           limits:
             cpu: "1"
-            memory: 2Gi
+            memory: 4Gi
           requests:
             cpu: "1"
             memory: 2Gi
@@ -361,8 +383,6 @@ spec:
           runAsUser: 0
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
-      nodeSelector:
-        pool: apm
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -382,17 +402,8 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 500Gi
+          storage: 1Ti
       storageClassName: oci-bv
       volumeMode: Filesystem
     status:
       phase: Pending
-status:
-  collisionCount: 0
-  currentReplicas: 1
-  currentRevision: elasticsearch-master-f65b5594c
-  observedGeneration: 4
-  readyReplicas: 1
-  replicas: 1
-  updateRevision: elasticsearch-master-f65b5594c
-  updatedReplicas: 1
