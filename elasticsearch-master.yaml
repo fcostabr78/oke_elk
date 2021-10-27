@@ -376,7 +376,7 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
-        - name: elasticsearch-data
+        - name: elasticsearch-master 
           mountPath: /usr/share/elasticsearch/data
       - command:
         - sysctl
