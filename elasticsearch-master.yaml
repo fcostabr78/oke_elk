@@ -371,6 +371,10 @@ spec:
       enableServiceLinks: true
       initContainers:
       - command:
+        - chown
+        - -R 1000:1000
+        - /usr/share/elasticsearch/data
+      - command:
         - sysctl
         - -w
         - vm.max_map_count=262144
